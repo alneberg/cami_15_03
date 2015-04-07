@@ -1,0 +1,12 @@
+#!/bin/bash
+
+#validate yaml
+/bbx/bin/biobox-validator/validate-input --schema=/bbx/schema/schema.yaml --input=/bbx/input/biobox.yaml
+
+#if valid yaml run concoct command
+if [$? -eq 0 ]
+then
+    snakemake concoct
+else
+    exit 1;
+fi
