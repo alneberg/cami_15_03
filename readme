@@ -1,0 +1,14 @@
+# How to start docker
+=====================
+
+On mac first start the virtual machine that runs docker by running
+
+```boot2docker up```
+
+Default password is tcuser
+
+Then log in to the virtual machine with ssh:
+
+```boot2docker ssh```
+
+
