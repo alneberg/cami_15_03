@@ -1,0 +1,49 @@
+{"bowtie2_rules": {
+    "platform": "Illumina",
+    "mapping_params": {
+        "default": ""
+    },
+    "load_env": ""
+},
+"samtools_rules": {
+    "load_env": "",
+    "picard_jars": "/opt/picard-tools-1.118"
+},
+"mapping_report_rules": {},
+"concoct_rules": {
+    "load_env": "source activate concoct",
+    "mapper": "bowtie2",
+    "mapping_params": "default",
+    "concoct_params": {
+        "cutoff-1000-maxcluster-1000": "-c 400 -l 1000"
+    },
+    "scripts_dir": "/opt/CONCOCT-0.4.0/scripts"
+},
+"prodigal_rules": {
+    "load_env": "",
+    "prodigal_params": {
+        "default-meta": "-p meta"
+    }
+},
+"rpsblast_rules": {
+    "load_env": "",
+    "rpsblast_params": {
+        "default-concoct": "-outfmt '6 qseqid sseqid evalue pident score qstart qend sstart send length slen' -max_target_seqs 1 -evalue 0.00001"
+    },
+    "databases": {
+        "cog": ""
+    },
+    "parallel_params": "-N 10 --env PATH"
+},
+"hmmer_rules": {
+        "load_env": "",
+        "hmmer_params": {
+            "default-concoct": "-E 0.0001 --cpu 16"
+        },
+        "databases": {
+            "all_pog": ""
+        }
+    },
+"assemblies": 
+"reads_dir": 
+}

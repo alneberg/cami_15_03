@@ -49,20 +49,36 @@ RUN apt-get install -qq bowtie2
 RUN apt-get install -qq parallel
 
 # Install python dependencies and fetch and install CONCOCT 0.4.0
+RUN conda update --yes conda;
+RUN conda create --yes -n concoct python=2.7
+
 RUN cd /opt;\
-    conda update --yes conda;\
-    conda install --yes python=2.7 atlas cython numpy scipy biopython pandas pip scikit-learn pysam;\
-    pip install bcbio-gff;\
-    wget --no-check-certificate https://github.com/BinPro/CONCOCT/archive/0.4.0.tar.gz;\
+    conda install --yes -n concoct atlas cython numpy scipy biopython pandas pip scikit-learn pysam;\
+    /opt/miniconda/envs/concoct/bin/pip install bcbio-gff
+
+RUN wget --no-check-certificate https://github.com/BinPro/CONCOCT/archive/0.4.0.tar.gz;\
     tar xf 0.4.0.tar.gz;\
     cd CONCOCT-0.4.0;\
-    python setup.py install
+    /opt/miniconda/envs/concoct/bin/python setup.py install
+
+# Install Snakemake within a conda environment
+RUN conda create --yes -n snakemake python=3.4 pip pyyaml;\
+    /opt/miniconda/envs/snakemake/bin/pip install snakemake
+
+ADD bbx/ /bbx
+
+RUN mkdir /bbx/snakemake_rundir
+ADD bin/Snakefile /bbx/snakemake_rundir/Snakefile
+ADD bin/config.json /bbx/config.json
+
+ADD bbx/bin/command_handler.py /bbx/command_handler.py
+RUN chmod a+x bbx/command_handler.py
 
 ENV CONCOCT /opt/CONCOCT-0.4.0
 ENV CONCOCT_TEST /opt/Data/CONCOCT-test-data
 ENV CONCOCT_EXAMPLE /opt/Data/CONCOCT-complete-example
 
-ADD bbx/ /bbx
 RUN chmod a+x /bbx/run/default
+
 ENV PATH /bbx/run:$PATH
 
