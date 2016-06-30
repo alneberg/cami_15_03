@@ -2,83 +2,87 @@
 # VERSION 0.4.0
 # 
 
-FROM ubuntu:13.10
+FROM ubuntu:14.04
 MAINTAINER CONCOCT developer group, concoct-support@lists.sourceforge.net
 
 ENV PATH /opt/miniconda/bin:$PATH
-ENV PATH /opt/velvet_1.2.10:$PATH
 
 # Get basic ubuntu packages needed
 RUN apt-get update -qq
-RUN apt-get install -qq wget build-essential libgsl0-dev git zip unzip
+RUN apt-get install -qq wget build-essential libgsl0-dev git zip unzip cmake
 
 # Set up Miniconda environment for python2
 RUN cd /opt;\
-    wget http://repo.continuum.io/miniconda/Miniconda-3.3.0-Linux-x86_64.sh -O miniconda.sh;\
+    wget http://repo.continuum.io/miniconda/Miniconda-3.9.1-Linux-x86_64.sh -O miniconda.sh;\
     chmod +x miniconda.sh;\
     ./miniconda.sh -p /opt/miniconda -b;\
     conda update --yes conda;\
     conda install --yes python=2.7
 
-# Bedtools2.17
-RUN apt-get install -qq bedtools
-
-# Picard tools 1.118
-# To get fuse to work, I need the following (Issue here: https://github.com/dotcloud/docker/issues/514,
-# solution here: https://gist.github.com/henrik-muehe/6155333).
-ENV MRKDUP /opt/picard-tools-1.118/MarkDuplicates.jar
-RUN apt-get install -qq libfuse2 openjdk-7-jre-headless
-RUN cd /tmp ; apt-get download fuse
-RUN cd /tmp ; dpkg-deb -x fuse_* .
-RUN cd /tmp ; dpkg-deb -e fuse_*
-RUN cd /tmp ; rm fuse_*.deb
-RUN cd /tmp ; echo -en '#!/bin/bash\nexit 0\n' > DEBIAN/postinst
-RUN cd /tmp ; dpkg-deb -b . /fuse.deb
-RUN cd /tmp ; dpkg -i /fuse.deb
-RUN cd /opt;\
-    wget "http://downloads.sourceforge.net/project/picard/picard-tools/1.118/picard-tools-1.118.zip?r=http%3A%2F%2Fsourceforge.net%2Fprojects%2Fpicard%2Ffiles%2Fpicard-tools%2F1.118%2F&ts=1396879817&use_mirror=freefr" -O picard-tools-1.118.zip;\
-    unzip picard-tools-1.118.zip
-
-# Samtools 0.1.19
-RUN apt-get install -qq samtools
-
-# Bowtie2.1.0
-RUN apt-get install -qq bowtie2
-
-# Parallel 20130622-1
-RUN apt-get install -qq parallel
-
-# Install python dependencies and fetch and install CONCOCT 0.4.0
-RUN conda update --yes conda;
+# Install python dependencies for concoct
 RUN conda create --yes -n concoct python=2.7
 
 RUN cd /opt;\
-    conda install --yes -n concoct atlas cython numpy scipy biopython pandas pip scikit-learn pysam;\
-    /opt/miniconda/envs/concoct/bin/pip install bcbio-gff
+    conda install --yes -n concoct atlas cython numpy scipy biopython pandas pip scikit-learn pysam
 
-RUN wget --no-check-certificate https://github.com/BinPro/CONCOCT/archive/0.4.0.tar.gz;\
-    tar xf 0.4.0.tar.gz;\
-    cd CONCOCT-0.4.0;\
-    /opt/miniconda/envs/concoct/bin/python setup.py install
 
+# Install kallisto
+RUN apt-get install -qq libhdf5-dev zlib1g-dev
+
+RUN wget --no-check-certificate https://github.com/pachterlab/kallisto/archive/v0.42.2.1.tar.gz;\
+    tar xf v0.42.2.1.tar.gz;\
+    cd kallisto-0.42.2.1;\
+    mkdir build;\
+    cd build;\
+    cmake ..;\
+    make;\
+    make install
+    
 # Install Snakemake within a conda environment
 RUN conda create --yes -n snakemake python=3.4 pip pyyaml;\
     /opt/miniconda/envs/snakemake/bin/pip install snakemake
 
-ADD bbx/ /bbx
+# Install Concoct
+RUN apt-get install git
+RUN cd /opt;\
+    git clone https://github.com/BinPro/CONCOCT.git;\
+    cd CONCOCT;\
+    git fetch origin;\
+    git checkout 311598bc9ae12adb94f974f2aa3831dea2cfdd0b;\
+    /opt/miniconda/envs/concoct/bin/python setup.py install
+
+# Add biobox schema validator
+ENV VALIDATOR /bbx/validator/
+ENV BASE_URL https://s3-us-west-1.amazonaws.com/bioboxes-tools/validate-biobox-file
+ENV VERSION  0.x.y
+RUN mkdir -p ${VALIDATOR}
+
+# download the validate-biobox-file binary and extract it to the directory $VALIDATOR
+RUN wget \
+      --quiet \
+      --output-document -\
+      ${BASE_URL}/${VERSION}/validate-biobox-file.tar.xz \
+    | tar xJf - \
+      --directory ${VALIDATOR} \
+      --strip-components=1
+
+ADD schema.yaml ${VALIDATOR}
+
+# add schema, tasks, run scripts
+ADD run.sh /usr/local/bin/run
+RUN chmod a+x /usr/local/bin/run 
 
 RUN mkdir /bbx/snakemake_rundir
 ADD bin/Snakefile /bbx/snakemake_rundir/Snakefile
 ADD bin/config.json /bbx/config.json
 
-ADD bbx/bin/command_handler.py /bbx/command_handler.py
-RUN chmod a+x bbx/command_handler.py
+ADD concoct2cami.py /bbx/snakemake_rundir/concoct2cami.py
+RUN chmod a+x /bbx/snakemake_rundir/concoct2cami.py
 
-ENV CONCOCT /opt/CONCOCT-0.4.0
-ENV CONCOCT_TEST /opt/Data/CONCOCT-test-data
-ENV CONCOCT_EXAMPLE /opt/Data/CONCOCT-complete-example
+ADD command_handler.py /bbx/command_handler.py
+RUN chmod a+x /bbx/command_handler.py
 
-RUN chmod a+x /bbx/run/default
+# Switch to bash as default shell
+ENV SHELL /bin/bash
 
-ENV PATH /bbx/run:$PATH
-
+ENTRYPOINT ["usr/local/bin/run"]
