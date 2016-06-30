@@ -1,9 +1,5 @@
-{"bowtie2_rules": {
-    "platform": "Illumina",
-    "mapping_params": {
-        "default": ""
-    },
-    "load_env": ""
+{
+"kallisto_rules": {
 },
 "samtools_rules": {
     "load_env": "",
@@ -17,7 +13,7 @@
     "concoct_params": {
         "cutoff-1000-maxcluster-1000": "-c 400 -l 1000"
     },
-    "scripts_dir": "/opt/CONCOCT-0.4.0/scripts"
+    "scripts_dir": "/opt/CONCOCT/scripts"
 },
 "prodigal_rules": {
     "load_env": "",
@@ -44,6 +40,6 @@
             "all_pog": ""
         }
     },
-"assemblies": 
-"reads_dir": 
+"assembly": {},
+"fastqs": {}
 }
