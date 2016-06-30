@@ -11,4 +11,26 @@ Then log in to the virtual machine with ssh:
 
 ```boot2docker ssh```
 
+In another terminal, find out which ip your boot2docker is running on:
 
+```boot2docker ip```
+
+Upload the Dockerfile with scp:
+
+```scp Dockerfile docker@ip:~/Dockerfiles/concoct```
+
+
+Upload the test data:
+
+```scp ~/repos/CONCOCT-test-data/reads 
+
+In the first terminal window, build the docker image:
+
+```cd ~/Dockerfiles/concoct/
+   docker build -t binpro/concoct_cami```
+
+
+And then run the docker container:
+
+```docker run -v /data/location/cami/input:/dckr/mnt/input:ro \
+    -v /data/location/cami/output:/dckr/mnt/output:rw default```
