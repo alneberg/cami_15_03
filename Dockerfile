@@ -37,7 +37,7 @@ RUN wget --no-check-certificate https://github.com/pachterlab/kallisto/archive/v
     cmake ..;\
     make;\
     make install
-    
+
 # Install Snakemake within a conda environment
 RUN conda create --yes -n snakemake python=3.4 pip pyyaml;\
     /opt/miniconda/envs/snakemake/bin/pip install snakemake
@@ -48,8 +48,9 @@ RUN cd /opt;\
     git clone https://github.com/BinPro/CONCOCT.git;\
     cd CONCOCT;\
     git fetch origin;\
-    git checkout 311598bc9ae12adb94f974f2aa3831dea2cfdd0b;\
+    git checkout 9d500fdbf5f080701521ba321145c7f085a428e4;\
     /opt/miniconda/envs/concoct/bin/python setup.py install
+
 
 # Add biobox schema validator
 ENV VALIDATOR /bbx/validator/
@@ -70,11 +71,12 @@ ADD schema.yaml ${VALIDATOR}
 
 # add schema, tasks, run scripts
 ADD run.sh /usr/local/bin/run
-RUN chmod a+x /usr/local/bin/run 
+RUN chmod a+x /usr/local/bin/run
 
 RUN mkdir /bbx/snakemake_rundir
 ADD bin/Snakefile /bbx/snakemake_rundir/Snakefile
 ADD bin/config.json /bbx/config.json
+ADD bin/Consensus.pl /bbx/Consensus.pl
 
 ADD concoct2cami.py /bbx/snakemake_rundir/concoct2cami.py
 RUN chmod a+x /bbx/snakemake_rundir/concoct2cami.py

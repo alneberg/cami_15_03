@@ -141,12 +141,9 @@ rule merge_concoct_results:
         "concoct/{assembly}/output/{concoct_params}/clustering.csv"
     output:
         "concoct/{assembly}/output/{concoct_params}/clustering_merged.csv"
-    params:
-        script_dir=config['concoct_rules']['scripts_dir']
     shell:
         """
-            {config[concoct_rules][load_env]}
-            python {params.script_dir}/majority_merge_cutup_clustering.py {input} > {output}
+            cat {input} | /bbx/Consensus.pl > {output}
         """
 
 rule concoct_merged_all:
