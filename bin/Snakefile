@@ -1,48 +1,140 @@
 __author__ = "Inodb, Alneberg"
 __license__ = "MIT"
 
-
-configfile: "config.json"
+configfile: 'config.json'
 
 import os
 import glob
 
+config["kallisto_rules"]["samples"] = {}
+config["deinterleave_rules"] = {}
+
+for sample, sample_path in config['fastqs'].items():
+    config["deinterleave_rules"][sample] = sample_path
+    
+    sample_new_path = os.path.join("deinterleaved_reads", sample, sample + ".fq")
+    
+    sample_R1 = sample_new_path.replace(".fq", "_R1.fq")
+    sample_R2 = sample_new_path.replace(".fq", "_R2.fq")
+
+    config["kallisto_rules"]["samples"][sample] = [sample_R1, sample_R2]
+
+# add assemblies to concoct assemblies
+config["concoct_rules"]["assemblies"] = {os.path.basename(p).replace(".fasta", ""): p for p in [config["assembly"]]}
+
+# Add the _10K cutup assemblies to kallisto quant
+config["kallisto_rules"]["references"] = {a + "_10K": "concoct/{a}/cutup/contigs_10K.fasta".format(a=a) for a in config["concoct_rules"]["assemblies"]}
+
+print(config)
+rule concoct_cutup_10K:
+    input:
+        lambda wildcards: config["concoct_rules"]["assemblies"][wildcards.assembly]
+    output:
+        "concoct/{assembly}/cutup/contigs_10K.fasta"
+    params:
+        chunk_size="10000",
+        overlap="0"
+    threads: 1
+    shell:
+        """
+        {config[concoct_rules][load_env]}
+        python {config[concoct_rules][scripts_dir]}/cut_up_fasta.py -c {params.chunk_size} -o {params.overlap} \
+            -m {input} > {output}
+        """
+
+rule deinterleave:
+    input: lambda wildcards: config["deinterleave_rules"][wildcards.sample]
+    output: "deinterleaved_reads/{sample}/{sample}_R1.fq",
+            "deinterleaved_reads/{sample}/{sample}_R2.fq"
+    shell:
+        """{config[concoct_rules][scripts_dir]}/deinterleave_fastq.sh < {input} {output}"""
+
+rule kallisto_index:
+    input:
+        lambda wildcards: config["kallisto_rules"]["references"][wildcards.reference]
+    output:
+        "quantification/kallisto/indices/{reference}.kaix"
+    shell:
+        """
+        kallisto index {input} -i {output}
+        """
+
+rule kallisto_quant:
+    input:
+        reads=lambda wildcards: config["kallisto_rules"]["samples"][wildcards.sample],
+        index="quantification/kallisto/indices/{reference}.kaix"
+    output:
+        "quantification/kallisto/quant/{reference}/samples/{sample}/abundance.tsv"
+    params:
+        outdir = "quantification/kallisto/quant/{reference}/samples/{sample}"
+    shell:
+        """
+        kallisto quant --plaintext -i {input.index} -o {params.outdir} {input.reads}
+        """
+
+rule kallisto_quant_all:
+    input:
+        expand("quantification/kallisto/quant/{reference}/samples/{sample}/abundance.tsv",
+            reference=config["kallisto_rules"]["references"],
+            sample=config["kallisto_rules"]["samples"]) 
+
+rule kallisto_concoct_inputtable:
+    input:
+        expand("quantification/kallisto/quant/{reference}/samples/{sample}/abundance.tsv",
+            reference=config["kallisto_rules"]["references"],
+            sample=config["kallisto_rules"]["samples"])
+    output:
+        "quantification/kallisto/inputtable_10K/{assembly}/concoct_inputtableR.tsv"
+    params:
+        sample_names=sorted(config["kallisto_rules"]["samples"])
+    shell:
+        """
+        {config[concoct_rules][load_env]}
+        cat <(for s in {params.sample_names}; do echo $s; done)
+        python {config[concoct_rules][scripts_dir]}/kallisto_inputtable.py \
+            --samplenames <(for s in {params.sample_names}; do echo $s; done) \
+                {input} > {output}
+        """
+
+rule concoct_inputtable_10K_all:
+    input:
+        expand("quantification/kallisto/inputtable_10K/{assembly}/concoct_inputtableR.tsv",
+        assembly=config["kallisto_rules"]["references"])
 
 
-# Add all reads to the bowtie2_rules
-config["bowtie2_rules"]["samples"] = {os.path.basename(p).replace("_R1.cut.sync.fasta", ""): [os.path.basename(p).replace("_R1.cut.sync.fasta", "")] for p in glob.glob("{0}/*_R1.cut.sync.fasta".format( config["reads_dir"]))}
-config["bowtie2_rules"]["units"] = {os.path.basename(p).replace("_R1.cut.sync.fasta", ""): [p, p.replace("R1", "R2")] for p in glob.glob("{0}/*_R1.cut.sync.fasta".format( config["reads_dir"] )) }
+rule concoct_run_10K:
+    """
+    Run CONCOCT
+    """
+    input:
+        asm="concoct/{assembly}/cutup/contigs_10K.fasta",
+        input_table="quantification/kallisto/inputtable_10K/{assembly}/concoct_inputtableR.tsv"
+    output:
+        clustering="concoct/{assembly}/output/{cparams}/clustering.csv"
+    params:
+        output_folder="concoct/{assembly}/output/{cparams}/",
+        concoct_params=lambda wildcards: config["concoct_rules"]["concoct_params"][wildcards.cparams]
+    shell:
+        """
+        {config[concoct_rules][load_env]}
+        concoct {params.concoct_params} \
+            --coverage_file {input.input_table} \
+            --composition_file {input.asm} \
+            -b {params.output_folder} && \
+        ln -fs $(basename {params.output_folder}clustering_gt*.csv) \
+               {output.clustering} && \
+        touch -h {output.clustering}
+        """
 
-# Add the assembly to bowtie2_rules
-config["bowtie2_rules"]["references"] = {os.path.basename(p).replace(".fna", ""): p for p in config["assemblies"]}
 
-# add newbler merged assemblies to concoct assemblies
-config["concoct_rules"]["assemblies"] = {k:v for k,v in config["bowtie2_rules"]["references"].items()}
-
-# Show all bowtie2 logs and markduplicate percent duplications in the mapping report
-config["mapping_report_rules"]["bowtie2_logs"] = sorted(expand("mapping/bowtie2/{mapping_params}/{reference}/units/{unit}.log",
-                                                        mapping_params=config["bowtie2_rules"]["mapping_params"],
-                                                        reference=config["bowtie2_rules"]["references"],
-                                                        unit=config["bowtie2_rules"]["units"]))
-
-config["mapping_report_rules"]["markduplicates_metrics"] = sorted(expand("mapping/bowtie2/{mapping_params}/{reference}/units/{unit}.sorted.removeduplicates.metrics",
-                                                                  mapping_params=config["bowtie2_rules"]["mapping_params"],
-                                                                  reference=config["bowtie2_rules"]["references"],
-                                                                  unit=config["bowtie2_rules"]["units"]))
-
-SM_WORKFLOW_LOC="https://raw.githubusercontent.com/alneberg/snakemake-workflows/a2a6cab285adad51f1997a03638cdf53b07b529b/"
-#SM_WORKFLOW_LOC="/proj/b2014214/repos/snakemake-workflows/"
-#SM_WORKFLOW_LOC="https://raw.githubusercontent.com/inodb/snakemake-workflows/fe913ac3a40387dbe26558ac35c8a807236e466a/"
-#SM_WORKFLOW_LOC = "/glob/inod/github/snakemake-workflows/"
-include: SM_WORKFLOW_LOC + "common/rules/track_dir.rules"
-include: SM_WORKFLOW_LOC + "bio/ngs/rules/assembly/report.rules"
-include: SM_WORKFLOW_LOC + "bio/ngs/rules/mapping/bowtie2.rules"
-include: SM_WORKFLOW_LOC + "bio/ngs/rules/mapping/samtools.rules"
-include: SM_WORKFLOW_LOC + "bio/ngs/rules/binning/concoct.rules"
-localrules: track_changes
-
-# Reads are fasta
-ruleorder: bowtie2_map_fasta > bowtie2_map > sam_to_bam
+rule concoct_run_10K_all:
+    """
+    Run CONCOCT on all assemblies over all parameters specified in the config file.
+    """
+    input:
+        expand("concoct/{assembly}/output/{concoct_params}/clustering.csv",
+            assembly=config["concoct_rules"]["assemblies"],
+            concoct_params=config["concoct_rules"]["concoct_params"])
 
 rule merge_concoct_results:
     input:
@@ -51,6 +143,18 @@ rule merge_concoct_results:
         "concoct/{assembly}/output/{concoct_params}/clustering_merged.csv"
     shell:
         """
+            cat {input} | /bbx/Consensus.pl > {output}
+        """
+
+rule concoct_merged_all:
+    input:
+        expand("concoct/{assembly}/output/{concoct_params}/clustering_merged.csv",
+            assembly=config["concoct_rules"]["assemblies"],
+            concoct_params=config["concoct_rules"]["concoct_params"])
+    output:
+        "concoct/final_result.tsv"
+    shell:
+        """
             {config[concoct_rules][load_env]}
-            python scripts/majority_merge_cutup_clustering.py {input} > {output}
+            python concoct2cami.py -i {input} -o {output}
         """
