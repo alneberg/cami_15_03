@@ -6,6 +6,7 @@ import yaml
 import os
 import sys
 import json
+import logging
 
 class Binner:
     def __init__(self, **entries):
@@ -23,7 +24,7 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--output_path', dest='o', nargs=1,
                         help='Output path')
     parser.add_argument('--config_input', help='config.json file for snakemake that will be modified')
-    
+
     parser.add_argument('--config_output', help='config.json file for snakemake that has been modified')
     args = parser.parse_args()
 
@@ -46,14 +47,14 @@ if __name__ == "__main__":
 
     # Construct the config.json for snakemake
     with open(args.config_input, 'r') as config_file:
-        config = json.load(config_file)    
+        config = json.load(config_file)
     config['assembly'] = binner.assembly['value']
     config['fastqs'] = fastqs
     with open(args.config_output, 'w') as ofile:
         ofile.write(json.dumps(config))
-    
-    # Start snakemake
 
+    # Start snakemake
+    logging.info("Running snakemake")
     command = "cd /bbx/snakemake_rundir/ && snakemake --debug concoct_merged_all && cp -r concoct/final_result.tsv /bbx/output/"
 
     exit = os.system(command)
@@ -70,5 +71,4 @@ if __name__ == "__main__":
         stream = open(yaml_output, 'w')
         yaml.dump(output_data, default_flow_style=False, stream=stream)
     else:
-        print(exit)
-        sys.exit(1)
+        sys.exit(-1)

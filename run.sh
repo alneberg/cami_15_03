@@ -7,8 +7,8 @@ cd /opt/CONCOCT
 #if valid yaml run concoct command
 if [ $? -eq 0 ]
 then
-    source activate snakemake 
-    cd /bbx && /opt/miniconda/envs/snakemake/bin/python command_handler.py -i /bbx/input/biobox.yaml -o /bbx/output --config_input /bbx/config.json --config_output snakemake_rundir/config.json 2> /bbx/output/log.txt || ls /bbx/snakemake_rundir/quantification/kallisto/quant/contigs_10K/samples/
+    source activate snakemake
+    cd /bbx && /opt/miniconda/envs/snakemake/bin/python command_handler.py -i /bbx/input/biobox.yaml -o /bbx/output --config_input /bbx/config.json --config_output snakemake_rundir/config.json 2> /bbx/output/log.txt
 else
     exit 1;
 fi
