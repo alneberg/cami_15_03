@@ -6,13 +6,38 @@ Pull the docker image:
 
 And then run the docker container:
 
-```docker run -v /data/location/cami/input:/dckr/mnt/input:ro \
-    -v /data/location/cami/output:/dckr/mnt/output:rw default```
-
-```run -v /data/location/:/bbx/input:ro \
+```docker run -v /data/location/:/bbx/input:ro \
     -v /output/location/:/bbx/output:rw cami-concoct```
 
+
+The input directory needs to have a file named ```biobox.yaml``` with contents similar to:
+
+
+    ---
+    version: 0.9.0
+    arguments:
+      - fasta:
+           id: "fasta"
+           value: "/bbx/input/contigs/contigs.fasta"
+           type: "contig"
+      - fastq:
+         - id: "Sample116"
+           value: "/bbx/input/reads/Sample118.fq"
+           type: paired
+         - id: "Sample120"
+           value: "/bbx/input/reads/Sample120.fq"
+           type: paired
+         - id: "Sample127"
+           value: "/bbx/input/reads/Sample127.fq"
+           type: paired
+         - id: "Sample134"
+           value: "/bbx/input/reads/Sample134.fq"
+           type: paired
+         - id: "Sample177"
+           value: "/bbx/input/reads/Sample177.fq"
+           type: paired
 
 If you wish to build the docker image from scratch:
 ```cd ~/repos/cami_15_03/
    docker build -t binpro/concoct_cami .```
+
