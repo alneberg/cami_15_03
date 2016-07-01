@@ -25,7 +25,6 @@ config["concoct_rules"]["assemblies"] = {os.path.basename(p).replace(".fasta", "
 # Add the _10K cutup assemblies to kallisto quant
 config["kallisto_rules"]["references"] = {a + "_10K": "concoct/{a}/cutup/contigs_10K.fasta".format(a=a) for a in config["concoct_rules"]["assemblies"]}
 
-print(config)
 rule concoct_cutup_10K:
     input:
         lambda wildcards: config["concoct_rules"]["assemblies"][wildcards.assembly]
