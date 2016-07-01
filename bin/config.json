@@ -11,7 +11,7 @@
     "mapper": "bowtie2",
     "mapping_params": "default",
     "concoct_params": {
-        "cutoff-1000-maxcluster-1000": "-c 400 -l 1000"
+        "cutoff-1000-maxcluster-1200": "-c 1200 -l 1000"
     },
     "scripts_dir": "/opt/CONCOCT/scripts"
 },
